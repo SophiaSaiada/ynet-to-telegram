@@ -1,6 +1,7 @@
 import { Context } from "@netlify/functions";
 import { JSDOM } from "jsdom";
 import { Redis } from "@upstash/redis";
+import { parseISO, format as formatDateFns } from "date-fns";
 
 const TELEGRAM_BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"]!;
 const TELEGRAM_CHAT_ID = process.env["TELEGRAM_CHAT_ID"]!;
@@ -12,14 +13,17 @@ const redis = new Redis({
 
 type Article = {
   articleId: string;
-  date: string;
+  date: Date;
   text: string;
   title: string;
   shareUrl: string;
 };
 
 async function sendArticleViaTelegram(article: Article) {
-  const formattedDateTime = article.date; // TODO: actually format date
+  const formattedDateTime = formatDateFns(
+    article.date,
+    "dd/MM/yyyyy בשעה HH:mm:ss"
+  );
   const message = `<b>🌟 <a href="${article.shareUrl}">מבזק</a> מ-${formattedDateTime}:</b>\n<b>${article.title}</b>\n${article.text}`;
   const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const requestBody = JSON.stringify({
@@ -88,17 +92,22 @@ export default async (req: Request, context: Context) => {
   )
     .filter((elm) => elm.innerHTML.match(SCRIPT_REGEX))[0]
     .innerHTML.match(SCRIPT_REGEX)![1];
-  const { items: articles }: { items: [Article] } = JSON.parse(
+  const articles: [Article] = JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
-  );
+  ).items.map(({ date, ...obj }) => ({
+    ...obj,
+    date: parseISO(date),
+  }));
 
   const lastSeenArticleId =
     (await redis.get<string>("lastSeenArticleId")) ||
     articles[Math.min(articles.length, 6)].articleId;
-  const newArticles = articles.slice(
-    0,
-    articles.findIndex((article) => article.articleId === lastSeenArticleId)
-  );
+  const newArticles = articles
+    .slice(
+      0,
+      articles.findIndex((article) => article.articleId === lastSeenArticleId)
+    )
+    .sort((a1, a2) => a1.date.getTime() - a2.date.getTime());
 
   await Promise.all(newArticles.map(sendArticleViaTelegram));
 
