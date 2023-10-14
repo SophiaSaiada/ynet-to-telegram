@@ -2,12 +2,12 @@ import { Context } from "@netlify/functions";
 import { JSDOM } from "jsdom";
 import { Redis } from "@upstash/redis";
 
-const TELEGRAM_BOT_TOKEN = Netlify.env.get("TELEGRAM_BOT_TOKEN")!;
-const TELEGRAM_CHAT_ID = Netlify.env.get("TELEGRAM_CHAT_ID")!;
+const TELEGRAM_BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"]!;
+const TELEGRAM_CHAT_ID = process.env["TELEGRAM_CHAT_ID"]!;
 
 const redis = new Redis({
-  url: Netlify.env.get("UPSTASH_URL")!,
-  token: Netlify.env.get("UPSTASH_TOKEN")!,
+  url: process.env["UPSTASH_URL"]!,
+  token: process.env["UPSTASH_TOKEN"]!,
 });
 
 type Article = {
