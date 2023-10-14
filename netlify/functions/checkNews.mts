@@ -20,28 +20,34 @@ type Article = {
 
 async function sendArticleViaTelegram(article: Article) {
   const formattedDateTime = article.date; // TODO: actually format date
-  const message = `<b>🌟 <a href="${
-    article.shareUrl
-  }">מבזק</a> מ-${formattedDateTime}:</b><br/><b>${article.title.replace(
-    /\\n/g,
-    "<br/>"
-  )}</b><br/>${article.text.replace(/\\n/g, "<br/>")}`;
-  const telegramResponse = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: message,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        chat_id: TELEGRAM_CHAT_ID,
-      }),
-    }
-  );
+  const message = `<b>🌟 <a href="${article.shareUrl}">מבזק</a> מ-${formattedDateTime}:</b>\n<b>${article.title}</b>\n${article.text}`;
+  const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const requestBody = JSON.stringify({
+    text: message,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    chat_id: TELEGRAM_CHAT_ID,
+  });
+  console.log(`START POST ${telegramApiUrl}:\n${requestBody}`);
+  const telegramResponse = await fetch(telegramApiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: message,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      chat_id: TELEGRAM_CHAT_ID,
+    }),
+  });
+  console.log(`END POST ${telegramApiUrl} returned ${telegramResponse.status}`);
   if (telegramResponse.status < 200 || telegramResponse.status >= 300) {
+    console.log({
+      telegramResponse: {
+        body: await telegramResponse.text(),
+      },
+    });
     throw Error(
       `Telegram sendMessage returned status ${telegramResponse.status}`
     );
@@ -86,7 +92,9 @@ export default async (req: Request, context: Context) => {
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   );
 
-  const lastSeenArticleId = await redis.get<string>("lastSeenArticleId");
+  const lastSeenArticleId =
+    (await redis.get<string>("lastSeenArticleId")) ||
+    articles[Math.min(articles.length, 6)].articleId;
   const newArticles = articles.slice(
     0,
     articles.findIndex((article) => article.articleId === lastSeenArticleId)
