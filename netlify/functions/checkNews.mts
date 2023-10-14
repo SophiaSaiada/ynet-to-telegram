@@ -1,5 +1,19 @@
 import { Context } from "@netlify/functions";
 import { JSDOM } from "jsdom";
+import { Redis } from "@upstash/redis";
+
+const redis = new Redis({
+  url: Netlify.env.get("UPSTASH_URL")!,
+  token: Netlify.env.get("UPSTASH_TOKEN")!,
+});
+
+type Article = {
+  articleId: string;
+  date: string;
+  text: string;
+  title: string;
+  shareUrl: string;
+};
 
 export default async (req: Request, context: Context) => {
   const rssFeedResponseText = await (
@@ -35,9 +49,18 @@ export default async (req: Request, context: Context) => {
   )
     .filter((elm) => elm.innerHTML.match(SCRIPT_REGEX))[0]
     .innerHTML.match(SCRIPT_REGEX)![1];
-  const { items: articles } = JSON.parse(
+  const { items: articles }: { items: [Article] } = JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   );
 
-  return new Response(JSON.stringify({ articles }, undefined, 2));
+  const lastSeenArticleId = await redis.get<string>("lastSeenArticleId");
+  const newArticles = articles.slice(
+    0,
+    articles.findIndex((article) => article.articleId === lastSeenArticleId)
+  );
+
+  // TODO: send telegram messages
+
+  await redis.set("lastSeenArticleId", articles[0].articleId);
+  return new Response(JSON.stringify({ newArticles }, undefined, 2));
 };

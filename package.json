@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/SophiaSaiada/ynet-to-telegram#readme",
   "dependencies": {
+    "@upstash/redis": "^1.23.3",
     "jsdom": "^22.1.0"
   },
   "devDependencies": {
