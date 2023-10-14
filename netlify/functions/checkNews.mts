@@ -30,18 +30,14 @@ export default async (req: Request, context: Context) => {
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );
-  console.log({ newsHTML: rssFeedDOM.window.document.body.innerHTML });
-  const newsJsonAsText = [
-    ...rssFeedDOM.window.document.getElementsByTagName("script"),
-  ]
-    .filter((elm) => {
-      console.log({ ...elm });
-      return elm.innerText.match(SCRIPT_REGEX);
-    })[0]
-    .innerText.match(SCRIPT_REGEX)![1];
+  const newsJsonAsText = Array.from(
+    rssFeedDOM.window.document.getElementsByTagName("script")
+  )
+    .filter((elm) => elm.innerHTML.match(SCRIPT_REGEX))[0]
+    .innerHTML.match(SCRIPT_REGEX)![1];
   const { items: articles } = JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   );
 
-  return new Response(JSON.stringify({ articles }));
+  return new Response(JSON.stringify({ articles }, undefined, 2));
 };
