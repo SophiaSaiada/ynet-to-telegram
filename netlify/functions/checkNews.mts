@@ -30,10 +30,14 @@ export default async (req: Request, context: Context) => {
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );
+  console.log({ newsHTML: rssFeedDOM.window.document.body.innerHTML });
   const newsJsonAsText = [
     ...rssFeedDOM.window.document.getElementsByTagName("script"),
   ]
-    .filter((elm) => elm.innerText.match(SCRIPT_REGEX))[0]
+    .filter((elm) => {
+      console.log({ ...elm });
+      return elm.innerText.match(SCRIPT_REGEX);
+    })[0]
     .innerText.match(SCRIPT_REGEX)![1];
   const { items: articles } = JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
