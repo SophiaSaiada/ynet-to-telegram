@@ -2,6 +2,9 @@ import { Context } from "@netlify/functions";
 import { JSDOM } from "jsdom";
 import { Redis } from "@upstash/redis";
 
+const TELEGRAM_BOT_TOKEN = Netlify.env.get("TELEGRAM_BOT_TOKEN")!;
+const TELEGRAM_CHAT_ID = Netlify.env.get("TELEGRAM_CHAT_ID")!;
+
 const redis = new Redis({
   url: Netlify.env.get("UPSTASH_URL")!,
   token: Netlify.env.get("UPSTASH_TOKEN")!,
@@ -14,6 +17,36 @@ type Article = {
   title: string;
   shareUrl: string;
 };
+
+async function sendArticleViaTelegram(article: Article) {
+  const formattedDateTime = article.date; // TODO: actually format date
+  const message = `<b>🌟 <a href="${
+    article.shareUrl
+  }">מבזק</a> מ-${formattedDateTime}:</b><br/><b>${article.title.replace(
+    /\\n/g,
+    "<br/>"
+  )}</b><br/>${article.text.replace(/\\n/g, "<br/>")}`;
+  const telegramResponse = await fetch(
+    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: message,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+        chat_id: TELEGRAM_CHAT_ID,
+      }),
+    }
+  );
+  if (telegramResponse.status < 200 || telegramResponse.status >= 300) {
+    throw Error(
+      `Telegram sendMessage returned status ${telegramResponse.status}`
+    );
+  }
+}
 
 export default async (req: Request, context: Context) => {
   const rssFeedResponseText = await (
@@ -59,7 +92,7 @@ export default async (req: Request, context: Context) => {
     articles.findIndex((article) => article.articleId === lastSeenArticleId)
   );
 
-  // TODO: send telegram messages
+  await Promise.all(newArticles.map(sendArticleViaTelegram));
 
   await redis.set("lastSeenArticleId", articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
