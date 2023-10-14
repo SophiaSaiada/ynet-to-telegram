@@ -1,5 +1,5 @@
 {
-  "name": "frequent-rss-telegram-bot",
+  "name": "ynet-to-telegram",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SophiaSaiada/FrequentRssTelegramBot.git"
+    "url": "git+https://github.com/SophiaSaiada/ynet-to-telegram.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/SophiaSaiada/FrequentRssTelegramBot/issues"
+    "url": "https://github.com/SophiaSaiada/ynet-to-telegram/issues"
   },
-  "homepage": "https://github.com/SophiaSaiada/FrequentRssTelegramBot#readme",
+  "homepage": "https://github.com/SophiaSaiada/ynet-to-telegram#readme",
   "dependencies": {
     "@netlify/functions": "^2.3.0",
     "jsdom": "^22.1.0"
