@@ -1,8 +1,9 @@
 import { Context } from "@netlify/functions";
 import { JSDOM } from "jsdom";
 import { Redis } from "@upstash/redis";
-import { parseISO, format as formatDateFns } from "date-fns";
+import { toDate, format as formatDateFns, utcToZonedTime } from "date-fns-tz";
 
+const TZ = process.env["TZ"] || "Asia/Jerusalem";
 const TELEGRAM_BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"]!;
 const TELEGRAM_CHAT_ID = process.env["TELEGRAM_CHAT_ID"]!;
 
@@ -22,7 +23,8 @@ type Article = {
 async function sendArticleViaTelegram(article: Article) {
   const formattedDateTime = formatDateFns(
     article.date,
-    "dd/MM/yyyyy בשעה HH:mm:ss"
+    "dd/MM/yyyy בשעה HH:mm:ss",
+    { timeZone: "Asia/Jerusalem" }
   );
   const message = `<b>🌟 <a href="${article.shareUrl}">מבזק</a> מ-${formattedDateTime}:</b>\n<b>${article.title}</b>\n${article.text}`;
   const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -96,7 +98,7 @@ export default async (req: Request, context: Context) => {
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   ).items.map(({ date, ...obj }) => ({
     ...obj,
-    date: parseISO(date),
+    date: utcToZonedTime(toDate(date), TZ),
   }));
 
   const lastSeenArticleId =
