@@ -109,7 +109,9 @@ export default async (req: Request, context: Context) => {
     )
     .sort((a1, a2) => a1.date.getTime() - a2.date.getTime());
 
-  await Promise.all(newArticles.map(sendArticleViaTelegram));
+  for (const newArticle of newArticles) {
+    await sendArticleViaTelegram(newArticle);
+  }
 
   await redis.set("lastSeenArticleId", articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
