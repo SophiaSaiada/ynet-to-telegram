@@ -139,9 +139,15 @@ async function dropSeenArticles(articles: Article[]) {
     .sort((a1, a2) => a1.date.getTime() - a2.date.getTime());
 }
 
-async function sendNewArticlesViaTelegram(articles: Article[]) {
+async function sendNewArticlesViaTelegram(
+  requestSource: RequestSource,
+  articles: Article[]
+) {
   for (const newArticle of articles) {
     await sendArticleViaTelegram(newArticle);
+  }
+  if (requestSource === RequestSource.BOT && articles.length === 0) {
+    await sendTelegramMessage("אין מבזקים חדשים", "no new articles");
   }
 }
 
@@ -185,10 +191,8 @@ function getBotCommand({
 
 async function validateRequestMaybeGetErrorResponse(
   req: Request,
-  context: Context
+  requestSource: RequestSource
 ): Promise<Response | null> {
-  const requestSource =
-    RequestSource[context.params.source.toLocaleUpperCase()];
   console.log(`Request source is ${requestSource}`);
   if (!requestSource) {
     return new Response("Not Found", { status: 404 });
@@ -199,7 +203,7 @@ async function validateRequestMaybeGetErrorResponse(
   if (requestSource === RequestSource.BOT) {
     const { message } = await req.json();
     if (message.chat.id !== TELEGRAM_CHAT_ID) {
-      console.log(`Blocked webhook from chat id ${message.chat.id}`)
+      console.log(`Blocked webhook from chat id ${message.chat.id}`);
       return new Response("Permission denied based on chat ID", {
         status: 403,
       });
@@ -212,15 +216,16 @@ async function validateRequestMaybeGetErrorResponse(
       );
       return new Response("Ignoring unknown command", { status: 200 });
     }
-    await sendTelegramMessage("על זה...", "refresh command ack");
   }
   return null;
 }
 
 export default async (req: Request, context: Context) => {
+  const requestSource =
+    RequestSource[context.params.source.toLocaleUpperCase()];
   const errorResponse = await validateRequestMaybeGetErrorResponse(
     req,
-    context
+    requestSource
   );
   if (errorResponse) {
     return errorResponse;
@@ -229,7 +234,7 @@ export default async (req: Request, context: Context) => {
   const newsResponseText = await getNewsFeedHTML();
   const articles = parseNews(newsResponseText);
   const newArticles = await dropSeenArticles(articles);
-  await sendNewArticlesViaTelegram(newArticles);
+  await sendNewArticlesViaTelegram(requestSource, newArticles);
   await updateLastSeenArticleId(articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
 };
