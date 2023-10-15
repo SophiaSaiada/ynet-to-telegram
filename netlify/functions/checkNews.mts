@@ -9,7 +9,7 @@ import { escapeHTML } from "../../utils";
 const SECRET_TOKEN = process.env["SECRET_TOKEN"];
 const TZ = process.env["TZ"] || "Asia/Jerusalem";
 const TELEGRAM_BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"]!;
-const TELEGRAM_CHAT_ID = process.env["TELEGRAM_CHAT_ID"]!;
+const TELEGRAM_CHAT_ID = parseInt(process.env["TELEGRAM_CHAT_ID"]!);
 
 const redis = new Redis({
   url: process.env["UPSTASH_URL"]!,
@@ -199,6 +199,7 @@ async function validateRequestMaybeGetErrorResponse(
   if (requestSource === RequestSource.BOT) {
     const { message } = await req.json();
     if (message.chat.id !== TELEGRAM_CHAT_ID) {
+      console.log(`Blocked webhook from chat id ${message.chat.id}`)
       return new Response("Permission denied based on chat ID", {
         status: 403,
       });
@@ -211,8 +212,8 @@ async function validateRequestMaybeGetErrorResponse(
       );
       return new Response("Ignoring unknown command", { status: 200 });
     }
+    await sendTelegramMessage("על זה...", "refresh command ack");
   }
-  await sendTelegramMessage("על זה...", "unknown command");
   return null;
 }
 
