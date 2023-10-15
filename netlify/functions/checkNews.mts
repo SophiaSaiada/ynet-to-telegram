@@ -191,6 +191,9 @@ async function validateRequestMaybeGetErrorResponse(
   const requestSource =
     RequestSource[context.params.source.toLocaleUpperCase()];
   console.log(`Request source is ${requestSource}`);
+  if (requestSource === RequestSource.BOT) {
+    console.log(JSON.stringify(req.json()));
+  }
   if (!requestSource) {
     return new Response("Not Found", { status: 404 });
   }
