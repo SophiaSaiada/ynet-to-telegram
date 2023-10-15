@@ -146,10 +146,14 @@ async function updateLastSeenArticleId(newLastSeenArticleId: string) {
 }
 
 export default async (req: Request, context: Context) => {
+  const timingLabel = context.requestId;
+  console.time(timingLabel);
   const newsResponseText = await getNewsFeedHTML();
   const articles = parseNews(newsResponseText);
   const newArticles = await dropSeenArticles(articles);
   await sendNewArticlesViaTelegram(newArticles);
   await updateLastSeenArticleId(articles[0].articleId);
-  return new Response(JSON.stringify({ newArticles }, undefined, 2));
+  const response = new Response(JSON.stringify({ newArticles }, undefined, 2));
+  console.timeEnd(timingLabel);
+  return response;
 };
