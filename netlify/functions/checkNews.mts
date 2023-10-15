@@ -23,15 +23,7 @@ type Article = {
   shareUrl: string;
 };
 
-async function sendArticleViaTelegram(article: Article) {
-  const formattedDateTime = formatDateFns(
-    article.date,
-    "dd/MM/yyyy בשעה HH:mm:ss",
-    { timeZone: "Asia/Jerusalem" }
-  );
-  const message = `<b>🌟 <a href="${article.shareUrl}">מבזק</a> מ-${escapeHTML(
-    formattedDateTime
-  )}:</b>\n<b>${escapeHTML(article.title)}</b>\n${escapeHTML(article.text)}`;
+async function sendTelegramMessage(message: string, tag: string) {
   const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const requestBody = JSON.stringify({
     text: message,
@@ -42,7 +34,7 @@ async function sendArticleViaTelegram(article: Article) {
   const timingLabel = `POST ${telegramApiUrl.replace(
     TELEGRAM_BOT_TOKEN,
     "***"
-  )} for article ${article.articleId}`;
+  )} for ${tag}`;
   console.time(timingLabel);
   console.log(`${timingLabel} body: ${requestBody}`);
   const telegramResponse = await fetch(telegramApiUrl, {
@@ -62,6 +54,18 @@ async function sendArticleViaTelegram(article: Article) {
       `Telegram sendMessage returned status ${telegramResponse.status}`
     );
   }
+}
+
+async function sendArticleViaTelegram(article: Article) {
+  const formattedDateTime = formatDateFns(
+    article.date,
+    "dd/MM/yyyy בשעה HH:mm:ss",
+    { timeZone: "Asia/Jerusalem" }
+  );
+  const message = `<b>🌟 <a href="${article.shareUrl}">מבזק</a> מ-${escapeHTML(
+    formattedDateTime
+  )}:</b>\n<b>${escapeHTML(article.title)}</b>\n${escapeHTML(article.text)}`;
+  await sendTelegramMessage(message, `article ${article.articleId}`);
 }
 
 async function getNewsFeedHTML(): Promise<string> {
@@ -178,7 +182,10 @@ async function getBotCommand(req: Request) {
   return result;
 }
 
-export default async (req: Request, context: Context) => {
+async function validateRequestMaybeGetErrorResponse(
+  req: Request,
+  context: Context
+): Promise<Response | null> {
   const requestSource =
     RequestSource[context.params.source.toLocaleUpperCase()];
   console.log(`Request source is ${requestSource}`);
@@ -188,12 +195,24 @@ export default async (req: Request, context: Context) => {
   if (!isAuthorized(req, requestSource)) {
     return new Response("Unauthorized", { status: 401 });
   }
-  if (
-    requestSource === RequestSource.BOT &&
-    (await getBotCommand(req)) !== "/refresh"
-  ) {
-    return new Response("Ignoring unknown command", { status: 204 });
+  if (requestSource === RequestSource.BOT) {
+    const command = await getBotCommand(req);
+    if (command !== "/refresh") {
+      if (command !== null) {
+        await sendTelegramMessage("Unknown command", "unknown command");
+      }
+      return new Response("Ignoring unknown command", { status: 200 });
+    }
   }
+  return null;
+}
+
+export default async (req: Request, context: Context) => {
+  const errorResponse = await validateRequestMaybeGetErrorResponse(req, context);
+  if (errorResponse) {
+    return errorResponse;
+  }
+
   const newsResponseText = await getNewsFeedHTML();
   const articles = parseNews(newsResponseText);
   const newArticles = await dropSeenArticles(articles);
