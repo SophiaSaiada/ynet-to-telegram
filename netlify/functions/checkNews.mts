@@ -12,6 +12,7 @@ const redis = new Redis({
   url: process.env["UPSTASH_URL"]!,
   token: process.env["UPSTASH_TOKEN"]!,
 });
+const REDIS_LAST_SEEN_ARTICLE_ID_KEY = "lastSeenArticleId";
 
 type Article = {
   articleId: string;
@@ -43,12 +44,7 @@ async function sendArticleViaTelegram(article: Article) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      text: message,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-      chat_id: TELEGRAM_CHAT_ID,
-    }),
+    body: requestBody,
   });
   console.log(`END POST ${telegramApiUrl} returned ${telegramResponse.status}`);
   if (telegramResponse.status < 200 || telegramResponse.status >= 300) {
@@ -63,8 +59,8 @@ async function sendArticleViaTelegram(article: Article) {
   }
 }
 
-export default async (req: Request, context: Context) => {
-  const rssFeedResponseText = await (
+async function getNewsFeedDOM() {
+  const newsResponseText = await (
     await fetch("https://www.ynet.co.il/news/category/184", {
       headers: {
         accept:
@@ -88,36 +84,53 @@ export default async (req: Request, context: Context) => {
       credentials: "include",
     })
   ).text();
-  const rssFeedDOM = new JSDOM(rssFeedResponseText);
+  return new JSDOM(newsResponseText);
+}
+
+function parseNews(newsFeedDOM: JSDOM): Article[] {
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );
   const newsJsonAsText = Array.from(
-    rssFeedDOM.window.document.getElementsByTagName("script")
+    newsFeedDOM.window.document.getElementsByTagName("script")
   )
     .filter((elm) => elm.innerHTML.match(SCRIPT_REGEX))[0]
     .innerHTML.match(SCRIPT_REGEX)![1];
-  const articles: [Article] = JSON.parse(
+  return JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   ).items.map(({ date, ...obj }) => ({
     ...obj,
     date: utcToZonedTime(toDate(date), TZ),
   }));
+}
 
+async function dropSeenArticles(articles: Article[]) {
   const lastSeenArticleId =
-    (await redis.get<string>("lastSeenArticleId")) ||
+    (await redis.get<string>(REDIS_LAST_SEEN_ARTICLE_ID_KEY)) ||
     articles[Math.min(articles.length, 6)].articleId;
-  const newArticles = articles
+  return articles
     .slice(
       0,
       articles.findIndex((article) => article.articleId === lastSeenArticleId)
     )
     .sort((a1, a2) => a1.date.getTime() - a2.date.getTime());
+}
 
-  for (const newArticle of newArticles) {
+async function sendNewArticlesViaTelegram(articles: Article[]) {
+  for (const newArticle of articles) {
     await sendArticleViaTelegram(newArticle);
   }
+}
 
-  await redis.set("lastSeenArticleId", articles[0].articleId);
+async function updateLastSeenArticleId(newLastSeenArticleId: string) {
+  await redis.set(REDIS_LAST_SEEN_ARTICLE_ID_KEY, newLastSeenArticleId);
+}
+
+export default async (req: Request, context: Context) => {
+  const newsFeedDOM = await getNewsFeedDOM();
+  const articles = parseNews(newsFeedDOM);
+  const newArticles = await dropSeenArticles(articles);
+  await sendNewArticlesViaTelegram(newArticles);
+  await updateLastSeenArticleId(articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
 };
