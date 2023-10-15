@@ -38,7 +38,12 @@ async function sendArticleViaTelegram(article: Article) {
     disable_web_page_preview: true,
     chat_id: TELEGRAM_CHAT_ID,
   });
-  console.log(`START POST ${telegramApiUrl}:\n${requestBody}`);
+  const timingLabel = `POST ${telegramApiUrl.replace(
+    TELEGRAM_BOT_TOKEN,
+    "***"
+  )} for article ${article.articleId}`;
+  console.time(timingLabel);
+  console.log(`${timingLabel} body: ${requestBody}`);
   const telegramResponse = await fetch(telegramApiUrl, {
     method: "POST",
     headers: {
@@ -46,13 +51,12 @@ async function sendArticleViaTelegram(article: Article) {
     },
     body: requestBody,
   });
-  console.log(`END POST ${telegramApiUrl} returned ${telegramResponse.status}`);
+  console.timeEnd(timingLabel);
+  console.log(`${timingLabel} returned status ${telegramResponse.status}`);
   if (telegramResponse.status < 200 || telegramResponse.status >= 300) {
-    console.log({
-      telegramResponse: {
-        body: await telegramResponse.text(),
-      },
-    });
+    console.log(
+      `${timingLabel} returned body: ${await telegramResponse.text()}`
+    );
     throw Error(
       `Telegram sendMessage returned status ${telegramResponse.status}`
     );
@@ -60,6 +64,9 @@ async function sendArticleViaTelegram(article: Article) {
 }
 
 async function getNewsFeedDOM() {
+  const newsFeedUrl = "https://www.ynet.co.il/news/category/184";
+  const timingLabel = `GET ${newsFeedUrl}`;
+  console.time(timingLabel);
   const newsResponseText = await (
     await fetch("https://www.ynet.co.il/news/category/184", {
       headers: {
@@ -84,10 +91,13 @@ async function getNewsFeedDOM() {
       credentials: "include",
     })
   ).text();
+  console.timeEnd(timingLabel);
   return new JSDOM(newsResponseText);
 }
 
 function parseNews(newsFeedDOM: JSDOM): Article[] {
+  const timingLabel = "parseNews";
+  console.time(timingLabel);
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );
@@ -96,18 +106,23 @@ function parseNews(newsFeedDOM: JSDOM): Article[] {
   )
     .filter((elm) => elm.innerHTML.match(SCRIPT_REGEX))[0]
     .innerHTML.match(SCRIPT_REGEX)![1];
-  return JSON.parse(
+  const news = JSON.parse(
     newsJsonAsText.replace(new RegExp('\\"', "g"), '"')
   ).items.map(({ date, ...obj }) => ({
     ...obj,
     date: utcToZonedTime(toDate(date), TZ),
   }));
+  console.timeEnd(timingLabel);
+  return news;
 }
 
 async function dropSeenArticles(articles: Article[]) {
+  const timingLabel = `Get ${REDIS_LAST_SEEN_ARTICLE_ID_KEY}`;
+  console.time(timingLabel);
   const lastSeenArticleId =
     (await redis.get<string>(REDIS_LAST_SEEN_ARTICLE_ID_KEY)) ||
     articles[Math.min(articles.length, 6)].articleId;
+  console.timeEnd(timingLabel);
   return articles
     .slice(
       0,
@@ -123,7 +138,10 @@ async function sendNewArticlesViaTelegram(articles: Article[]) {
 }
 
 async function updateLastSeenArticleId(newLastSeenArticleId: string) {
+  const timingLabel = `Set ${REDIS_LAST_SEEN_ARTICLE_ID_KEY}`;
+  console.time(timingLabel);
   await redis.set(REDIS_LAST_SEEN_ARTICLE_ID_KEY, newLastSeenArticleId);
+  console.timeEnd(timingLabel);
 }
 
 export default async (req: Request, context: Context) => {
