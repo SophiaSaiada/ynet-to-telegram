@@ -200,6 +200,7 @@ async function validateRequestMaybeGetErrorResponse(
   if (requestSource === RequestSource.BOT) {
     const command = await getBotCommand(req);
     if (command !== "/refresh") {
+      console.log("Ignoring message without command.");
       if (command !== null) {
         await sendTelegramMessage("Unknown command", "unknown command");
       }
