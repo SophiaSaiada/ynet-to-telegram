@@ -1,5 +1,5 @@
 import { Context } from "@netlify/functions";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import { Redis } from "@upstash/redis";
 import { toDate, format as formatDateFns, utcToZonedTime } from "date-fns-tz";
 import { escapeHTML } from "../../utils";
@@ -98,7 +98,7 @@ async function getNewsFeedHTML(): Promise<string> {
 function parseNews(newsResponseText: string): Article[] {
   const timingLabel = "parseNews";
   console.time(timingLabel);
-  const newsFeedDOM = new JSDOM(newsResponseText);
+  const newsFeedDOM = parseHTML(newsResponseText);
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );

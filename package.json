@@ -19,7 +19,7 @@
   "dependencies": {
     "@upstash/redis": "^1.23.3",
     "date-fns-tz": "^2.0.0",
-    "jsdom": "^22.1.0"
+    "linkedom": "^0.15.6"
   },
   "devDependencies": {
     "@netlify/functions": "^2.3.0",
