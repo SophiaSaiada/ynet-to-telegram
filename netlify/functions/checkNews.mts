@@ -201,7 +201,8 @@ async function validateRequestMaybeGetErrorResponse(
     return new Response("Unauthorized", { status: 401 });
   }
   if (requestSource === RequestSource.BOT) {
-    const { message } = await req.json();
+    const requestBody = await req.json();
+    const message = requestBody.message ?? requestBody.channel_post;
     if (message.chat.id !== TELEGRAM_CHAT_ID) {
       console.log(`Blocked webhook from chat id ${message.chat.id}`);
       return new Response("Permission denied based on chat ID", {
