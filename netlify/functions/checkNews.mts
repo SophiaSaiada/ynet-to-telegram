@@ -181,6 +181,7 @@ async function getBotCommand(req: Request) {
 export default async (req: Request, context: Context) => {
   const requestSource =
     RequestSource[context.params.source.toLocaleUpperCase()];
+  console.log(`Request source is ${requestSource}`);
   if (!requestSource) {
     return new Response("Not Found", { status: 404 });
   }
