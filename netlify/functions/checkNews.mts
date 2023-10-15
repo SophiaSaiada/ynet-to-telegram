@@ -205,13 +205,14 @@ async function validateRequestMaybeGetErrorResponse(
     }
     const command = getBotCommand(message);
     if (command !== "/refresh") {
-      console.log("Ignoring message without command.");
-      if (command !== null) {
-        await sendTelegramMessage("Unknown command", "unknown command");
-      }
+      await sendTelegramMessage(
+        "בשביל ליזום עדכון צריך להשתמש בפקודה /refresh",
+        "unknown command"
+      );
       return new Response("Ignoring unknown command", { status: 200 });
     }
   }
+  await sendTelegramMessage("על זה...", "unknown command");
   return null;
 }
 
