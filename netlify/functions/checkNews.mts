@@ -63,7 +63,7 @@ async function sendArticleViaTelegram(article: Article) {
   }
 }
 
-async function getNewsFeedDOM() {
+async function getNewsFeedHTML(): Promise<string> {
   const newsFeedUrl = "https://www.ynet.co.il/news/category/184";
   const timingLabel = `GET ${newsFeedUrl}`;
   console.time(timingLabel);
@@ -92,12 +92,13 @@ async function getNewsFeedDOM() {
     })
   ).text();
   console.timeEnd(timingLabel);
-  return new JSDOM(newsResponseText);
+  return newsResponseText;
 }
 
-function parseNews(newsFeedDOM: JSDOM): Article[] {
+function parseNews(newsResponseText: string): Article[] {
   const timingLabel = "parseNews";
   console.time(timingLabel);
+  const newsFeedDOM = new JSDOM(newsResponseText);
   const SCRIPT_REGEX = new RegExp(
     /^\w*window\.YITSiteWidgets\.push\(\['[a-zA-Z0-9]+', *'Accordion', *(\{.+\})\]\);$/
   );
@@ -145,8 +146,8 @@ async function updateLastSeenArticleId(newLastSeenArticleId: string) {
 }
 
 export default async (req: Request, context: Context) => {
-  const newsFeedDOM = await getNewsFeedDOM();
-  const articles = parseNews(newsFeedDOM);
+  const newsResponseText = await getNewsFeedHTML();
+  const articles = parseNews(newsResponseText);
   const newArticles = await dropSeenArticles(articles);
   await sendNewArticlesViaTelegram(newArticles);
   await updateLastSeenArticleId(articles[0].articleId);
