@@ -197,11 +197,13 @@ async function validateRequestMaybeGetErrorResponse(
   if (!isAuthorized(req, requestSource)) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const requestBody = await req.json();
-  if (requestBody.chat.id !== TELEGRAM_CHAT_ID) {
-    return new Response("Permission denied based on chat ID", { status: 403 });
-  }
   if (requestSource === RequestSource.BOT) {
+    const requestBody = await req.json();
+    if (requestBody.chat.id !== TELEGRAM_CHAT_ID) {
+      return new Response("Permission denied based on chat ID", {
+        status: 403,
+      });
+    }
     const command = getBotCommand(requestBody);
     if (command !== "/refresh") {
       console.log("Ignoring message without command.");
