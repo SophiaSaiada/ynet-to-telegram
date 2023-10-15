@@ -1,9 +1,10 @@
-import { Context } from "@netlify/functions";
+import { Config, Context } from "@netlify/functions";
 import { parseHTML } from "linkedom";
 import { Redis } from "@upstash/redis";
 import { toDate, format as formatDateFns, utcToZonedTime } from "date-fns-tz";
 import { escapeHTML } from "../../utils";
 
+const SECRET_TOKEN = process.env["SECRET_TOKEN"];
 const TZ = process.env["TZ"] || "Asia/Jerusalem";
 const TELEGRAM_BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"]!;
 const TELEGRAM_CHAT_ID = process.env["TELEGRAM_CHAT_ID"]!;
@@ -145,11 +146,61 @@ async function updateLastSeenArticleId(newLastSeenArticleId: string) {
   console.timeEnd(timingLabel);
 }
 
+enum RequestSource {
+  BOT = "bot",
+  CRON = "cron",
+}
+
+const isAuthorized = (req: Request, source: RequestSource) =>
+  SECRET_TOKEN === undefined ||
+  req.headers.get(
+    source === RequestSource.CRON
+      ? "X-Secret-Token"
+      : "X-Telegram-Bot-Api-Secret-Token"
+  ) === SECRET_TOKEN;
+
+async function getBotCommand(req: Request) {
+  const {
+    entities,
+    text,
+  }: {
+    entities?: { offset: number; length: number; type: string }[];
+    text: string;
+  } = await req.json();
+  const entity = (entities ?? []).find(
+    (entity) => entity.type === "bot_command"
+  );
+  if (!entity) {
+    return null;
+  }
+  const result = text.slice(entity.offset, entity.offset + entity.length);
+  console.log(JSON.stringify({ text, entities, entity, result }));
+  return result;
+}
+
 export default async (req: Request, context: Context) => {
+  const requestSource =
+    RequestSource[context.params.source.toLocaleUpperCase()];
+  if (!requestSource) {
+    return new Response("Not Found", { status: 404 });
+  }
+  if (!isAuthorized(req, requestSource)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  if (
+    requestSource === RequestSource.BOT &&
+    (await getBotCommand(req)) !== "/refresh"
+  ) {
+    return new Response("Ignoring unknown command", { status: 204 });
+  }
   const newsResponseText = await getNewsFeedHTML();
   const articles = parseNews(newsResponseText);
   const newArticles = await dropSeenArticles(articles);
   await sendNewArticlesViaTelegram(newArticles);
   await updateLastSeenArticleId(articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
+};
+
+export const config: Config = {
+  path: "/checkNews/:source",
 };
