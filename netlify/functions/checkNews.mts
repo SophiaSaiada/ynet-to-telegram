@@ -165,14 +165,13 @@ const isAuthorized = (req: Request, source: RequestSource) =>
       : "X-Telegram-Bot-Api-Secret-Token"
   ) === SECRET_TOKEN;
 
-function getBotCommand(requestBody: any) {
-  const {
-    entities,
-    text,
-  }: {
-    entities?: { offset: number; length: number; type: string }[];
-    text: string;
-  } = requestBody.message;
+function getBotCommand({
+  entities,
+  text,
+}: {
+  entities?: { offset: number; length: number; type: string }[];
+  text: string;
+}) {
   const entity = (entities ?? []).find(
     (entity) => entity.type === "bot_command"
   );
@@ -198,13 +197,13 @@ async function validateRequestMaybeGetErrorResponse(
     return new Response("Unauthorized", { status: 401 });
   }
   if (requestSource === RequestSource.BOT) {
-    const requestBody = await req.json();
-    if (requestBody.chat.id !== TELEGRAM_CHAT_ID) {
+    const { message } = await req.json();
+    if (message.chat.id !== TELEGRAM_CHAT_ID) {
       return new Response("Permission denied based on chat ID", {
         status: 403,
       });
     }
-    const command = getBotCommand(requestBody);
+    const command = getBotCommand(message);
     if (command !== "/refresh") {
       console.log("Ignoring message without command.");
       if (command !== null) {
