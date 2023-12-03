@@ -145,6 +145,7 @@ async function sendNewArticlesViaTelegram(
 ) {
   for (const newArticle of articles) {
     await sendArticleViaTelegram(newArticle);
+    await updateLastSeenArticleId(articles[0].articleId)
   }
   if (requestSource === RequestSource.BOT && articles.length === 0) {
     await sendTelegramMessage("אין מבזקים חדשים", "no new articles");
@@ -238,7 +239,6 @@ async function handleRefresh(
 ) {
   const newArticles = await dropSeenArticles(articles);
   await sendNewArticlesViaTelegram(requestSource, newArticles);
-  await updateLastSeenArticleId(articles[0].articleId);
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
 }
 
