@@ -165,7 +165,6 @@ enum RequestSource {
 
 enum Action {
   REFRESH = "refresh",
-  DIGEST = "digest",
 }
 
 const isAuthorized = (req: Request, source: RequestSource) =>
@@ -243,12 +242,6 @@ async function handleRefresh(
   return new Response(JSON.stringify({ newArticles }, undefined, 2));
 }
 
-async function handleDigest(_articles: Article[]) {
-  // TODO: implement
-  await sendTelegramMessage("/digest עוד לא מומש", "not implemented");
-  return new Response("Not Implemented");
-}
-
 async function handleAction(
   action: Action,
   requestSource: RequestSource,
@@ -257,8 +250,6 @@ async function handleAction(
   switch (action) {
     case Action.REFRESH:
       return handleRefresh(requestSource, articles);
-    case Action.DIGEST:
-      return handleDigest(articles);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
